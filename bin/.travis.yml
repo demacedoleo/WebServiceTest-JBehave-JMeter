@@ -1,0 +1,19 @@
+language: java
+env: MAVEN_OPTS="-Xmx512m -XX:MaxPermSize=128m"
+script: mvn clean integration-test
+jdk:
+  - openjdk7
+  - oraclejdk7
+
+language: java # selección del lenguaje, en nuestro caso cpp.   
+script:       # El script que ejecutaremos para que nuestro código funcione y corra los test.
+    - mvn clean integration-test
+branches:     # decidimos que TravisCI solo compruebe los test del master de github.
+    only:
+        - master
+notifications:   # Notificamos los resultados de los test por correo
+    recipients:
+        - leo.unsta@gmail.com
+    email:
+        on_success: leo.unsta@gmail.com
+        on_failure: leo.unsta@gmail.com

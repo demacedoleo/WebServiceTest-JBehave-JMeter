@@ -2,7 +2,7 @@
 
 Meta:
 @team charlie alpha
-@category globalweather
+@category performance
 @storyId GW-35
 @suite Aceptance
 @story backend
@@ -15,7 +15,7 @@ I want to Check Weather By Country and City Name
 Scenario: Check weather by country and city name
 Given A country Brazil and city Rio de Janeiro
 When I consume GetWeather service
-Then Verify that temperature is 40 C
+Then Verify that response is less than 900 milis
 
 
 

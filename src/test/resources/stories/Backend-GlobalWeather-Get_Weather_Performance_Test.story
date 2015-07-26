@@ -15,7 +15,7 @@ I want to Check Weather By Country and City Name
 Scenario: Check weather by country and city name
 Given A country Brazil and city Rio de Janeiro
 When I consume GetWeather service
-Then Verify that response is less than 900 milis
+Then Verify that response is less than 1200 milis
 
 
 

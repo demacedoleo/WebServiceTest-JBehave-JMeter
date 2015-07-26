@@ -1,9 +1,14 @@
 package com.performance.jmeter;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.jmeter.config.Arguments;
 import org.apache.jmeter.config.gui.ArgumentsPanel;
 import org.apache.jmeter.control.LoopController;
@@ -14,7 +19,6 @@ import org.apache.jmeter.protocol.http.sampler.HTTPSampler;
 import org.apache.jmeter.protocol.http.sampler.HTTPSamplerProxy;
 import org.apache.jmeter.reporters.ResultCollector;
 import org.apache.jmeter.reporters.Summariser;
-import org.apache.jmeter.samplers.SampleEvent;
 import org.apache.jmeter.save.SaveService;
 import org.apache.jmeter.testelement.TestElement;
 import org.apache.jmeter.testelement.TestPlan;
@@ -22,8 +26,6 @@ import org.apache.jmeter.threads.SetupThreadGroup;
 import org.apache.jmeter.util.JMeterUtils;
 import org.apache.jorphan.collections.HashTree;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.type.ClassMetadata;
-import org.springframework.core.type.filter.AbstractClassTestingTypeFilter;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -39,6 +41,18 @@ public class JMeterEngineGlobalWeather {
 	@Value("${test.performance.rampUp}")
 	private String rampUp;
 	
+	@Value("${test.jmeter.report.projects}")
+	private String projectJMeter;
+	
+	@Value("${test.jmeter.report.jtl}")
+	private String reportJTL;
+	
+	@Value("${test.jmeter.report.csv}")
+	private String reportCSV;
+	
+	@Value("${test.jmeter.report.dirReport}")
+	private String dirReport;
+	
 	public StandardJMeterEngine globalWeatherEngine() throws FileNotFoundException, IOException { 
 		
 		jMeterEngine = new StandardJMeterEngine();
@@ -49,14 +63,17 @@ public class JMeterEngineGlobalWeather {
 		JMeterUtils.initLogging();
         JMeterUtils.initLocale();
 
-        HashTree hashTree = new HashTree();     
-
+        HashTree hashTree = new HashTree(); 
+        
         // HTTP Sampler
         HTTPSampler httpSampler = new HTTPSampler();
-        httpSampler.setDomain("www.google.com");
+        httpSampler.setDomain("api.openweathermap.org");
         httpSampler.setPort(80);
-        httpSampler.setPath("/");
+        httpSampler.setPath("/data/2.5/weather");
         httpSampler.setMethod("GET");
+        httpSampler.addArgument("q", "London");
+        httpSampler.setName("openweathermap");
+        
         httpSampler.setProperty(TestElement.TEST_CLASS, HTTPSamplerProxy.class.getName());
         httpSampler.setProperty(TestElement.GUI_CLASS, HttpTestSampleGui.class.getName());
 
@@ -81,31 +98,68 @@ public class JMeterEngineGlobalWeather {
         hashTree.add("testPlan", testPlan);
         hashTree.add("loopCtrl", loopCtrl);
         hashTree.add("threadGroup", threadGroup);
-        hashTree.add("httpSampler", httpSampler);       
-
+        hashTree.add("httpSampler", httpSampler);
+       
         jMeterEngine.configure(hashTree);
+      
+        createReport(hashTree); 
         
-        // save generated test plan to JMeter's .jmx file format
-        SaveService.saveTree(hashTree, new FileOutputStream("report\\jmeter_api_sample.jmx"));
+		return jMeterEngine;
+	}
+
+	/**
+	 * Generate JMeter Report
+	 * @param hashTree
+	 * @throws FileNotFoundException
+	 * @throws IOException
+	 */
+	private void createReport(HashTree hashTree) throws FileNotFoundException, IOException { 
+		
+		// save generated test plan to JMeter's .jmx file format
+		if(new File(dirReport).exists()) {
+			FileUtils.cleanDirectory(new File(dirReport));  
+		} else {
+			FileUtils.forceMkdir(new File(dirReport));
+		}
+		
+        SaveService.saveTree(hashTree, new FileOutputStream(new File(dirReport + "/" + projectJMeter)));
         
         //add Summarizer output to get test progress in stdout like:
-        // summary = 2 in 1.3s = 1.5/s  Avg: 631  Min: 290  Max: 973  Err: 0 (0.00%)
+        // summary = (Max + Min = --> 1.3~) 2 in 1.3s = 1.5/s  
+        //Avg([Max+Min]/2): 631 milis  Min: 290 milis  Max: 973 milis  (Response) Err: 0 (0.00%)
         Summariser summer = null;
         String summariserName = JMeterUtils.getPropDefault("summariser.name", "summary");
         if (summariserName.length() > 0) {
             summer = new Summariser(summariserName);
         }
-        System.out.println(">>> " + summer.getComment());
-        // Store execution results into a .jtl file, we can save file as csv also
-        String reportFile = "report\\report.jtl";
-        String csvFile = "report\\report.csv";
+        
+        // Store execution
         ResultCollector logger = new ResultCollector(summer);
-        logger.setFilename(reportFile);
+        logger.setFilename(dirReport + "/" + reportJTL);
         ResultCollector csvlogger = new ResultCollector(summer);
-        csvlogger.setFilename(csvFile);
+        csvlogger.setFilename(dirReport + "/" + reportCSV);
         hashTree.add(hashTree.getArray()[0], logger);
-        hashTree.add(hashTree.getArray()[0], csvlogger); 
+        hashTree.add(hashTree.getArray()[0], csvlogger);
 		
-		return jMeterEngine;
+	}
+	
+	/**
+	 * Map that contains a jmeter log
+	 * @return Map
+	 * @throws FileNotFoundException
+	 */
+	public Map<String, String> getSummary() throws FileNotFoundException { 
+		int positionAverage = 4;
+		Map<String, String> summary = new HashMap<String, String>();
+		
+		try {
+			List<String> lines = FileUtils.readLines(new File("jmeter.log"));
+			String[] results = lines.get(lines.size()-1).toString().split(":");
+			summary.put("average", results[positionAverage].trim().substring(0, 3));  
+		} catch(IOException io) {
+			throw new FileNotFoundException();
+		}
+		
+		return summary;
 	}
 }

@@ -32,6 +32,9 @@ import org.springframework.stereotype.Component;
 public class JMeterEngineGlobalWeather {
 	private StandardJMeterEngine jMeterEngine;
 	
+	@Value("${test.performance.jmeterPath}")
+	private String jmeterPath;
+	
 	@Value("${test.performance.jmeterProperties}")
 	private String jmeterProperties;
 	
@@ -57,7 +60,7 @@ public class JMeterEngineGlobalWeather {
 		
 		jMeterEngine = new StandardJMeterEngine();
 		
-		JMeterUtils.setJMeterHome("/Users/admin/Work/apache-jmeter-2.13");
+		JMeterUtils.setJMeterHome(jmeterPath);
 		JMeterUtils.loadJMeterProperties(jmeterProperties);
 		
 		JMeterUtils.initLogging();
